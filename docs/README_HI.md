@@ -9,7 +9,7 @@
 
 PCMU या PCMA के रूप में फ़ोन नेटवर्क से गुज़रने वाली हर कॉल पहले से ही संपीड़ित होती है: हर 16-बिट सैंपल के अधिकतम 256 मान ही हो सकते हैं। इसे WAV में सहेजें तो हर दूसरा बाइट बेकार है। इसे MP3 या Opus में सहेजें तो कोडेक चुपचाप ऑडियो को बदल देता है, ऐसे बदलाव जिन्हें इंसान मुश्किल से सुनता है पर स्पीच रिकग्नाइज़र पकड़ लेता है।
 
-g711xz कॉल को ठीक वैसा ही रखता है जैसी वह आई थी। यह सैंपल को वापस उनके 8-बिट G.711 कोड में बदलता है, उन्हें xz से पैक करता है और मूल PCM को बिट-दर-बिट लौटाता है। रिंगिंग और सन्नाटा लगभग शून्य तक सिकुड़ जाते हैं; बातचीत Opus से ज़्यादा जगह लेती है। यह Linux, macOS और Windows के लिए एक कमांड लाइन टूल और शुद्ध Python लाइब्रेरी है।
+g711xz कॉल को ठीक वैसा ही रखता है जैसी वह आई थी। यह सैंपल को वापस उनके 8-बिट G.711 कोड में बदलता है, उन्हें xz से पैक करता है और मूल PCM को बिट-दर-बिट लौटाता है। रिंगिंग और सन्नाटा लगभग शून्य तक सिकुड़ जाते हैं; बातचीत Opus से ज़्यादा जगह लेती है। यह Linux, macOS और Windows के लिए एक कमांड लाइन टूल और Python लाइब्रेरी है, और प्रकाशित wheel में Rust एक्सटेंशन शामिल है।
 
 **[English](https://github.com/wachawo/g711xz/blob/main/README.md)** | [Español](https://github.com/wachawo/g711xz/blob/main/docs/README_ES.md) | [Português](https://github.com/wachawo/g711xz/blob/main/docs/README_PT.md) | [Français](https://github.com/wachawo/g711xz/blob/main/docs/README_FR.md) | [Deutsch](https://github.com/wachawo/g711xz/blob/main/docs/README_DE.md) | [Italiano](https://github.com/wachawo/g711xz/blob/main/docs/README_IT.md) | [Русский](https://github.com/wachawo/g711xz/blob/main/docs/README_RU.md) | [中文](https://github.com/wachawo/g711xz/blob/main/docs/README_ZH.md) | [日本語](https://github.com/wachawo/g711xz/blob/main/docs/README_JA.md) | **[हिन्दी](https://github.com/wachawo/g711xz/blob/main/docs/README_HI.md)**
 
@@ -52,7 +52,7 @@ g711xz कॉल को ठीक वैसा ही रखता है जै
 pip3 install g711xz
 ```
 
-या GitHub से:
+या GitHub से (इससे Rust एक्सटेंशन बनता है, इसके लिए Rust टूलचेन और C कंपाइलर चाहिए):
 
 ```bash
 pip3 install git+https://github.com/wachawo/g711xz.git
@@ -146,7 +146,7 @@ ruff check .
 ruff format --check .
 mypy g711xz
 
-# वैकल्पिक Rust एक्सटेंशन (Rust टूलचेन और सक्रिय virtualenv आवश्यक)
+# Rust एक्सटेंशन को वहीं फिर से बनाएं (Rust टूलचेन, C कंपाइलर और सक्रिय virtualenv आवश्यक)
 maturin develop --release
 ```
 

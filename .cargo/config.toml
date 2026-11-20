@@ -1,0 +1,15 @@
+# liblzma-sys compiles xz-utils with its own config.h, which leaves out
+# TUKLIB_FAST_UNALIGNED_ACCESS. Without it the LZMA encoder compares match
+# lengths one byte at a time and encodes 15-25% slower than the distro
+# liblzma that Python's lzma module uses. xz-utils' own build turns it on for
+# these targets; the compressed bytes are the same either way. The cc crate
+# reads CFLAGS_<target> in addition to CFLAGS, and the option is spelled the
+# same for gcc, clang and MSVC cl.
+[env]
+CFLAGS_x86_64_unknown_linux_gnu = "-DTUKLIB_FAST_UNALIGNED_ACCESS=1"
+CFLAGS_aarch64_unknown_linux_gnu = "-DTUKLIB_FAST_UNALIGNED_ACCESS=1"
+CFLAGS_x86_64_unknown_linux_musl = "-DTUKLIB_FAST_UNALIGNED_ACCESS=1"
+CFLAGS_aarch64_unknown_linux_musl = "-DTUKLIB_FAST_UNALIGNED_ACCESS=1"
+CFLAGS_x86_64_apple_darwin = "-DTUKLIB_FAST_UNALIGNED_ACCESS=1"
+CFLAGS_aarch64_apple_darwin = "-DTUKLIB_FAST_UNALIGNED_ACCESS=1"
+CFLAGS_x86_64_pc_windows_msvc = "-DTUKLIB_FAST_UNALIGNED_ACCESS=1"

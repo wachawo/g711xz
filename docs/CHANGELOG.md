@@ -1,5 +1,13 @@
 # CHANGELOG
 
+0.0.2 (2026-11-20)
+========
+- Wheels with the Rust extension for Linux (x86_64 and aarch64, glibc and musl), macOS and Windows, plus a pure Python fallback wheel
+- The Rust extension releases the GIL while it encodes and decodes
+- liblzma (xz-utils) replaces lzma-turbo, so the Rust extension writes the same xz bytes as Python's lzma
+- Lookup tables are built once instead of on the stack, and long calls take less memory
+- An xz error during encode is raised as FormatError
+
 0.0.1 (2026-11-20)
 ========
 - Same code as 0.0.0, published to PyPI

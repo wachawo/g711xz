@@ -9,7 +9,7 @@
 
 Любой звонок, который проходит через телефонную сеть как PCMU или PCMA, уже сжат: каждый 16-битный отсчёт принимает одно из не более чем 256 значений. Сохраните его в WAV, и каждый второй байт окажется лишним. Сохраните в MP3 или Opus, и кодек незаметно перепишет звук: человек этих изменений почти не слышит, а распознаватель речи слышит.
 
-g711xz хранит звонок ровно таким, каким он пришёл. Он возвращает отсчёты в их 8-битные коды G.711, сжимает их xz и отдаёт исходный PCM бит в бит. Гудки и тишина сжимаются почти в ноль, а разговор занимает больше места, чем Opus. Это утилита командной строки и библиотека на чистом Python для Linux, macOS и Windows.
+g711xz хранит звонок ровно таким, каким он пришёл. Он возвращает отсчёты в их 8-битные коды G.711, сжимает их xz и отдаёт исходный PCM бит в бит. Гудки и тишина сжимаются почти в ноль, а разговор занимает больше места, чем Opus. Это утилита командной строки и библиотека Python для Linux, macOS и Windows, а в опубликованных колёсах есть расширение на Rust.
 
 **[English](https://github.com/wachawo/g711xz/blob/main/README.md)** | [Español](https://github.com/wachawo/g711xz/blob/main/docs/README_ES.md) | [Português](https://github.com/wachawo/g711xz/blob/main/docs/README_PT.md) | [Français](https://github.com/wachawo/g711xz/blob/main/docs/README_FR.md) | [Deutsch](https://github.com/wachawo/g711xz/blob/main/docs/README_DE.md) | [Italiano](https://github.com/wachawo/g711xz/blob/main/docs/README_IT.md) | **[Русский](https://github.com/wachawo/g711xz/blob/main/docs/README_RU.md)** | [中文](https://github.com/wachawo/g711xz/blob/main/docs/README_ZH.md) | [日本語](https://github.com/wachawo/g711xz/blob/main/docs/README_JA.md) | [हिन्दी](https://github.com/wachawo/g711xz/blob/main/docs/README_HI.md)
 
@@ -52,7 +52,7 @@ g711xz хранит звонок ровно таким, каким он приш
 pip3 install g711xz
 ```
 
-Или из GitHub:
+Или из GitHub (при этом собирается расширение на Rust, нужны тулчейн Rust и компилятор C):
 
 ```bash
 pip3 install git+https://github.com/wachawo/g711xz.git
@@ -146,7 +146,7 @@ ruff check .
 ruff format --check .
 mypy g711xz
 
-# Опциональное расширение на Rust (нужен тулчейн Rust и активный virtualenv)
+# Пересобрать расширение на Rust на месте (нужны тулчейн Rust, компилятор C и активный virtualenv)
 maturin develop --release
 ```
 

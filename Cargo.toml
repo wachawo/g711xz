@@ -1,6 +1,6 @@
 [package]
 name = "g711xz"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 description = "Rust implementation of g711xz call recording codec with PyO3 bindings"
 license = "MIT"
@@ -11,8 +11,8 @@ name = "g711xz"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.22", features = ["extension-module", "abi3-py38"] }
-lzma-turbo = { version = "0.12", features = ["xz", "enc"] }
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py39"] }
+liblzma = { version = "0.4", default-features = false, features = ["static"] }
 thiserror = "1.0"
 byteorder = "1.5"
 

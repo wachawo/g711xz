@@ -9,7 +9,7 @@
 
 Cada llamada que cruza una red telefónica como PCMU o PCMA ya viene comprimida: cada muestra de 16 bits es uno de, como mucho, 256 valores. Guárdala como WAV y uno de cada dos bytes sobra. Guárdala como MP3 u Opus y el códec reescribe el audio en silencio, con cambios que una persona apenas oye y un reconocedor de voz sí.
 
-g711xz guarda la llamada tal como llegó. Convierte las muestras de nuevo en sus códigos G.711 de 8 bits, las empaqueta con xz y devuelve el PCM original bit a bit. Los tonos y el silencio se reducen casi a nada; una conversación ocupa más que Opus. Es una herramienta de línea de comandos y una biblioteca en Python puro para Linux, macOS y Windows.
+g711xz guarda la llamada tal como llegó. Convierte las muestras de nuevo en sus códigos G.711 de 8 bits, las empaqueta con xz y devuelve el PCM original bit a bit. Los tonos y el silencio se reducen casi a nada; una conversación ocupa más que Opus. Es una herramienta de línea de comandos y una biblioteca de Python para Linux, macOS y Windows, con una extensión en Rust en los wheels publicados.
 
 **[English](https://github.com/wachawo/g711xz/blob/main/README.md)** | **[Español](https://github.com/wachawo/g711xz/blob/main/docs/README_ES.md)** | [Português](https://github.com/wachawo/g711xz/blob/main/docs/README_PT.md) | [Français](https://github.com/wachawo/g711xz/blob/main/docs/README_FR.md) | [Deutsch](https://github.com/wachawo/g711xz/blob/main/docs/README_DE.md) | [Italiano](https://github.com/wachawo/g711xz/blob/main/docs/README_IT.md) | [Русский](https://github.com/wachawo/g711xz/blob/main/docs/README_RU.md) | [中文](https://github.com/wachawo/g711xz/blob/main/docs/README_ZH.md) | [日本語](https://github.com/wachawo/g711xz/blob/main/docs/README_JA.md) | [हिन्दी](https://github.com/wachawo/g711xz/blob/main/docs/README_HI.md)
 
@@ -52,7 +52,7 @@ Un archivo es una llamada grabada: el canal izquierdo es quien llama y el canal 
 pip3 install g711xz
 ```
 
-O desde GitHub:
+O desde GitHub (compila la extensión en Rust y necesita un toolchain de Rust y un compilador de C):
 
 ```bash
 pip3 install git+https://github.com/wachawo/g711xz.git
@@ -146,7 +146,7 @@ ruff check .
 ruff format --check .
 mypy g711xz
 
-# Extensión opcional en Rust (requiere un toolchain de Rust y un virtualenv activo)
+# Recompilar la extensión en Rust (requiere un toolchain de Rust, un compilador de C y un virtualenv activo)
 maturin develop --release
 ```
 

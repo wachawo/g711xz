@@ -9,7 +9,7 @@
 
 Every call that crosses a phone network as PCMU or PCMA is already compressed: each 16-bit sample is one of at most 256 values. Store it as WAV and every second byte is redundant. Store it as MP3 or Opus and the codec quietly rewrites the audio, in ways a person barely hears and a speech recognizer does.
 
-g711xz keeps the call exactly as it arrived. It turns the samples back into their 8-bit G.711 codes, packs them with xz, and gives back the original PCM bit for bit. Ringing and silence shrink to almost nothing; a conversation takes more space than Opus. It is a command line tool and a pure Python library for Linux, macOS, and Windows.
+g711xz keeps the call exactly as it arrived. It turns the samples back into their 8-bit G.711 codes, packs them with xz, and gives back the original PCM bit for bit. Ringing and silence shrink to almost nothing; a conversation takes more space than Opus. It is a command line tool and a Python library for Linux, macOS, and Windows, with a Rust extension in the published wheels.
 
 **[English](https://github.com/wachawo/g711xz/blob/main/README.md)** | [Spanish](https://github.com/wachawo/g711xz/blob/main/docs/README_ES.md) | [Portuguese](https://github.com/wachawo/g711xz/blob/main/docs/README_PT.md) | [French](https://github.com/wachawo/g711xz/blob/main/docs/README_FR.md) | [German](https://github.com/wachawo/g711xz/blob/main/docs/README_DE.md) | [Italian](https://github.com/wachawo/g711xz/blob/main/docs/README_IT.md) | [Russian](https://github.com/wachawo/g711xz/blob/main/docs/README_RU.md) | [Chinese](https://github.com/wachawo/g711xz/blob/main/docs/README_ZH.md) | [Japanese](https://github.com/wachawo/g711xz/blob/main/docs/README_JA.md) | [Hindi](https://github.com/wachawo/g711xz/blob/main/docs/README_HI.md)
 
@@ -52,7 +52,7 @@ One file is one recorded call: the left channel is the caller, the right channel
 pip3 install g711xz
 ```
 
-Or from GitHub:
+Or from GitHub (this builds the Rust extension and needs a Rust toolchain and a C compiler):
 
 ```bash
 pip3 install git+https://github.com/wachawo/g711xz.git
@@ -146,7 +146,7 @@ ruff check .
 ruff format --check .
 mypy g711xz
 
-# Optional Rust extension (needs a Rust toolchain and an active virtualenv)
+# Rebuild the Rust extension in place (needs a Rust toolchain, a C compiler and an active virtualenv)
 maturin develop --release
 ```
 

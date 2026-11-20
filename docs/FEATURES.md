@@ -90,18 +90,18 @@ The codec picks the fastest implementation it can import. All of them produce th
 
 | Backend | Used when | Notes |
 |---|---|---|
-| Rust | `g711xz._rust` is importable | built locally, see below |
+| Rust | `g711xz._rust` is importable | in the wheels on PyPI, or built from source |
 | NumPy | `numpy` is importable | `pip3 install numpy` |
 | Pure Python | always available | standard library only |
 
-- ✅ The package from PyPI is pure Python and works without the other two
+- ✅ PyPI has wheels with the Rust extension for Linux (x86_64 and aarch64, glibc and musl), macOS and Windows x64; anywhere else pip installs a pure Python wheel that works without the other two backends
 - ✅ `g711xz.HAS_RUST` and `g711xz.HAS_NUMPY` tell which accelerators were found
 - ✅ The test suite checks every backend it can import against the same vectors
-- ❌ The compressed bytes are not identical between the Rust backend and the others: they use different xz encoders. The payload inside the xz stream and the decoded PCM are identical
+- ✅ The Rust extension uses xz-utils (liblzma), the same library as Python's lzma module: the payload and the decoded PCM are identical across backends, and with the same xz-utils version so are the compressed bytes
 
 ### Building the Rust Extension
 
-Requires a Rust toolchain (rustc 1.97.1 or newer), [maturin](https://www.maturin.rs/) and an active virtualenv.
+Not needed when installing a wheel from PyPI. Building from source requires a Rust toolchain, a C compiler (xz-utils is built from source and linked statically), [maturin](https://www.maturin.rs/) and an active virtualenv.
 
 ```bash
 pip3 install maturin

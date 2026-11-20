@@ -9,7 +9,7 @@
 
 PCMU や PCMA として電話網を通る通話は、すでに圧縮されています。16 ビットの各サンプルが取りうる値は最大 256 個だけです。WAV で保存すると 1 バイトおきに冗長になります。MP3 や Opus で保存すると、コーデックが音声を黙って書き換えます。人の耳にはほとんど分からない変化ですが、音声認識には分かります。
 
-g711xz は通話を届いたときのまま保存します。サンプルを 8 ビットの G.711 コードに戻して xz で圧縮し、元の PCM をビット単位で完全に復元します。呼び出し音や無音はほとんどゼロまで縮みますが、会話は Opus より大きくなります。Linux、macOS、Windows で動くコマンドラインツールであり、ピュア Python のライブラリです。
+g711xz は通話を届いたときのまま保存します。サンプルを 8 ビットの G.711 コードに戻して xz で圧縮し、元の PCM をビット単位で完全に復元します。呼び出し音や無音はほとんどゼロまで縮みますが、会話は Opus より大きくなります。Linux、macOS、Windows で動くコマンドラインツールであり Python ライブラリで、公開されている wheel には Rust 拡張が含まれます。
 
 **[English](https://github.com/wachawo/g711xz/blob/main/README.md)** | [Español](https://github.com/wachawo/g711xz/blob/main/docs/README_ES.md) | [Português](https://github.com/wachawo/g711xz/blob/main/docs/README_PT.md) | [Français](https://github.com/wachawo/g711xz/blob/main/docs/README_FR.md) | [Deutsch](https://github.com/wachawo/g711xz/blob/main/docs/README_DE.md) | [Italiano](https://github.com/wachawo/g711xz/blob/main/docs/README_IT.md) | [Русский](https://github.com/wachawo/g711xz/blob/main/docs/README_RU.md) | [中文](https://github.com/wachawo/g711xz/blob/main/docs/README_ZH.md) | **[日本語](https://github.com/wachawo/g711xz/blob/main/docs/README_JA.md)** | [हिन्दी](https://github.com/wachawo/g711xz/blob/main/docs/README_HI.md)
 
@@ -52,7 +52,7 @@ g711xz は通話を届いたときのまま保存します。サンプルを 8 �
 pip3 install g711xz
 ```
 
-または GitHub から:
+または GitHub から (Rust 拡張をビルドするため、Rust ツールチェーンと C コンパイラが必要です):
 
 ```bash
 pip3 install git+https://github.com/wachawo/g711xz.git
@@ -146,7 +146,7 @@ ruff check .
 ruff format --check .
 mypy g711xz
 
-# オプションの Rust 拡張 (Rust ツールチェーンと有効な virtualenv が必要)
+# Rust 拡張をその場で再ビルド (Rust ツールチェーン、C コンパイラ、有効な virtualenv が必要)
 maturin develop --release
 ```
 

@@ -1,23 +1,198 @@
 name: Publish
+
 on:
   push:
     tags:
       - "*.*.*"
       - "v*"
+  # Builds every artifact without publishing, to try the matrix before a tag
+  workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build-and-publish:
+  # The version lives in Cargo.toml only; a tag that disagrees would publish
+  # files named after the wrong release.
+  check-version:
+    name: Tag matches Cargo.toml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)"
+          if [ "$tag" != "$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME, Cargo.toml version $version"
+            exit 1
+          fi
+
+  # One abi3 wheel per platform covers every CPython from 3.9 on.
+  linux:
+    name: Linux ${{ matrix.libc }} ${{ matrix.target }}
+    needs: check-version
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-latest, target: x86_64, libc: manylinux, compat: "2014", image: "python:3.12-slim" }
+          - { runner: ubuntu-24.04-arm, target: aarch64, libc: manylinux, compat: "2014", image: "python:3.12-slim" }
+          - { runner: ubuntu-latest, target: x86_64, libc: musllinux, compat: musllinux_1_2, image: "python:3.12-alpine" }
+          - { runner: ubuntu-24.04-arm, target: aarch64, libc: musllinux, compat: musllinux_1_2, image: "python:3.12-alpine" }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.compat }}
+          rust-toolchain: stable
+          args: --release --locked --out dist
+      # Installed into a clean image, away from the source tree, so the test
+      # imports the wheel and not the checkout.
+      - name: Test the wheel
+        run: |
+          docker run --rm -v "$PWD:/io:ro" -w /tmp ${{ matrix.image }} sh -c '
+            pip install -q pytest /io/dist/*.whl &&
+            cp /io/test_g711xz.py . &&
+            python -c "import g711xz; assert g711xz.HAS_RUST, \"no Rust in the wheel\"" &&
+            python -m pytest -q -p no:cacheprovider test_g711xz.py'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux-${{ matrix.libc }}-${{ matrix.target }}
+          path: dist/*.whl
+
+  macos:
+    name: macOS ${{ matrix.target }}
+    needs: check-version
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-latest is arm64; the x86_64 wheel is cross-compiled there and
+        # cannot be imported on that runner, so only arm64 is tested.
+        target: [x86_64, aarch64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          rust-toolchain: stable
+          args: --release --locked --out dist
+      - name: Test the wheel
+        if: matrix.target == 'aarch64'
+        run: |
+          python -m pip install pytest dist/*.whl
+          cd "$RUNNER_TEMP"
+          cp "$GITHUB_WORKSPACE/test_g711xz.py" .
+          python -c "import g711xz; assert g711xz.HAS_RUST, 'no Rust in the wheel'"
+          python -m pytest -q -p no:cacheprovider test_g711xz.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos-${{ matrix.target }}
+          path: dist/*.whl
+
+  windows:
+    name: Windows x64
+    needs: check-version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+      - name: Build
+        uses: PyO3/maturin-action@v1
+        with:
+          target: x64
+          rust-toolchain: stable
+          args: --release --locked --out dist
+      - name: Test the wheel
+        shell: bash
+        run: |
+          python -m pip install pytest dist/*.whl
+          cd "$RUNNER_TEMP"
+          cp "$GITHUB_WORKSPACE/test_g711xz.py" .
+          python -c "import g711xz; assert g711xz.HAS_RUST, 'no Rust in the wheel'"
+          python -m pytest -q -p no:cacheprovider test_g711xz.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-x64
+          path: dist/*.whl
+
+  sdist:
+    name: Source distribution
+    needs: check-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-sdist
+          path: dist/*.tar.gz
+
+  # Platforms with no wheel above (PyPy, Windows on ARM, ppc64le, s390x, ...)
+  # would otherwise fall to the sdist and need a Rust toolchain and a C
+  # compiler (liblzma is built from source). pip ranks any platform wheel
+  # above py3-none-any, so this one is installed only where nothing better
+  # exists, and runs on the Python/NumPy paths.
+  pure:
+    name: Pure-Python fallback wheel
+    needs: check-version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install -U build
-      - run: python -m build
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+      # Hatchling is called directly, so pyproject.toml keeps maturin as its
+      # backend; hatchling reads [project] and [tool.hatch.*] only.
+      - name: Build
+        run: |
+          python -m pip install hatchling
+          python -c "from hatchling.build import build_wheel; print(build_wheel('dist'))"
+          ls dist/*-py3-none-any.whl
+      - name: Test the wheel
+        run: |
+          python -m pip install pytest dist/*.whl
+          cd "$RUNNER_TEMP"
+          cp "$GITHUB_WORKSPACE/test_g711xz.py" .
+          python -c "import g711xz; assert not g711xz.HAS_RUST"
+          python -m pytest -q -p no:cacheprovider test_g711xz.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-pure
+          path: dist/*.whl
+
+  publish:
+    name: Publish to PyPI
+    # A manual run started on a tag ref must still not publish
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: [linux, macos, windows, sdist, pure]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+      - run: ls -l dist
+      - uses: pypa/gh-action-pypi-publish@release/v1

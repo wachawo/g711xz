@@ -9,7 +9,7 @@
 
 以 PCMU 或 PCMA 穿过电话网络的每一通电话，本身就已经是压缩过的：每个 16 位采样最多只有 256 种取值。存成 WAV，每隔一个字节就是冗余的。存成 MP3 或 Opus，编解码器会悄悄改写音频，这些变化人耳几乎听不出来，语音识别却能察觉。
 
-g711xz 原样保存通话。它把采样还原为 8 位 G.711 编码，用 xz 打包，并逐位还原出原始 PCM。振铃和静音几乎被压缩为零；对话占用的空间则比 Opus 大。它是一个命令行工具，也是一个纯 Python 库，支持 Linux、macOS 和 Windows。
+g711xz 原样保存通话。它把采样还原为 8 位 G.711 编码，用 xz 打包，并逐位还原出原始 PCM。振铃和静音几乎被压缩为零；对话占用的空间则比 Opus 大。它是一个命令行工具，也是一个 Python 库，支持 Linux、macOS 和 Windows，发布的 wheel 中包含 Rust 扩展。
 
 **[English](https://github.com/wachawo/g711xz/blob/main/README.md)** | [Español](https://github.com/wachawo/g711xz/blob/main/docs/README_ES.md) | [Português](https://github.com/wachawo/g711xz/blob/main/docs/README_PT.md) | [Français](https://github.com/wachawo/g711xz/blob/main/docs/README_FR.md) | [Deutsch](https://github.com/wachawo/g711xz/blob/main/docs/README_DE.md) | [Italiano](https://github.com/wachawo/g711xz/blob/main/docs/README_IT.md) | [Русский](https://github.com/wachawo/g711xz/blob/main/docs/README_RU.md) | **[中文](https://github.com/wachawo/g711xz/blob/main/docs/README_ZH.md)** | [日本語](https://github.com/wachawo/g711xz/blob/main/docs/README_JA.md) | [हिन्दी](https://github.com/wachawo/g711xz/blob/main/docs/README_HI.md)
 
@@ -52,7 +52,7 @@ g711xz 原样保存通话。它把采样还原为 8 位 G.711 编码，用 xz �
 pip3 install g711xz
 ```
 
-或从 GitHub 安装：
+或从 GitHub 安装（会编译 Rust 扩展，需要 Rust 工具链和 C 编译器）：
 
 ```bash
 pip3 install git+https://github.com/wachawo/g711xz.git
@@ -146,7 +146,7 @@ ruff check .
 ruff format --check .
 mypy g711xz
 
-# 可选的 Rust 扩展（需要 Rust 工具链和已激活的 virtualenv）
+# 在原地重新编译 Rust 扩展（需要 Rust 工具链、C 编译器和已激活的 virtualenv）
 maturin develop --release
 ```
 

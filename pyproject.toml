@@ -1,12 +1,15 @@
 [build-system]
 requires = [
-    "hatchling",
+    "maturin>=1.7,<2.0",
 ]
-build-backend = "hatchling.build"
+build-backend = "maturin"
 
 [project]
 name = "g711xz"
-version = "0.0.1"
+# Taken from Cargo.toml by maturin (and by hatchling for the pure wheel)
+dynamic = [
+    "version",
+]
 description = "Lossless storage for G.711 call recordings: read, decode and encode .g711.xz files"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -74,6 +77,12 @@ dev = [
 [project.scripts]
 g711xz = "g711xz:main"
 
+# Hatchling builds only the pure-Python fallback wheel in the publish
+# workflow; every other build goes through maturin.
+[tool.hatch.version]
+path = "Cargo.toml"
+pattern = '^version = "(?P<version>[^"]+)"'
+
 [tool.hatch.build.targets.wheel]
 packages = [
     "g711xz",
@@ -90,13 +99,6 @@ exclude = [
     ".pytest_cache/**",
     ".ruff_cache/**",
     ".mypy_cache/**",
-]
-
-[tool.hatch.build.targets.sdist]
-exclude = [
-    "g711xz/_rust*",
-    "target/**",
-    "dist/**",
 ]
 
 [tool.hatch.envs.default]
@@ -130,9 +132,12 @@ check = "mypy g711xz"
 
 [tool.maturin]
 module-name = "g711xz._rust"
-cargo-manifest-path = "Cargo.toml"
-manylinux = "manylinux2014"
+manifest-path = "Cargo.toml"
 python-source = "."
+strip = true
+# The platform tag (manylinux2014, musllinux_1_2) is chosen by the publish
+# workflow, not here: pinned here, a plain `maturin build` on any current
+# distribution fails its own compliance check.
 
 [tool.pytest.ini_options]
 testpaths = [

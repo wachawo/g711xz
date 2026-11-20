@@ -6,10 +6,10 @@ use pyo3::prelude::*;
 use pyo3::create_exception;
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyBytes;
-use lzma_turbo::{XzReader, encode_xz, LzmaEncProps};
-use lzma_turbo::xz::stream::CheckType;
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use liblzma::stream::{Action, Check, Filters, LzmaOptions, Status, Stream, CONCATENATED};
+use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::{Read, Cursor};
+use std::sync::OnceLock;
 use thiserror::Error;
 
 const MAGIC: &[u8; 4] = b"CRG7";
@@ -23,6 +23,12 @@ const HEADER_SIZE: usize = 16;
 pub enum G711xzError {
     #[error("not a valid xz stream: {0}")]
     InvalidXz(String),
+
+    #[error("xz compression failed: {0}")]
+    XzEncode(String),
+
+    #[error("{0} frames is more than a file can hold")]
+    TooManyFrames(usize),
     
     #[error("payload is longer than {0} bytes, not a call recording")]
     LongPayload(u64),
@@ -85,9 +91,27 @@ struct ExpansionTables {
     high: [u8; 256],
 }
 
-/// Compression table for a given law
+/// Compression table for a given law, kept on the heap: at 128 KiB it would
+/// overflow a small thread stack
 struct CompressionTable {
-    table: [u16; 65536],
+    table: Box<[u16]>,
+}
+
+static ULAW_EXPANSION: OnceLock<ExpansionTables> = OnceLock::new();
+static ALAW_EXPANSION: OnceLock<ExpansionTables> = OnceLock::new();
+static ULAW_COMPRESSION: OnceLock<CompressionTable> = OnceLock::new();
+static ALAW_COMPRESSION: OnceLock<CompressionTable> = OnceLock::new();
+
+/// Expansion tables of a law, built on first use
+fn expansion_tables(law: u8) -> &'static ExpansionTables {
+    let cell = if law == b'u' { &ULAW_EXPANSION } else { &ALAW_EXPANSION };
+    cell.get_or_init(|| ExpansionTables::new(law))
+}
+
+/// Compression table of a law, built on first use
+fn compression_table(law: u8) -> &'static CompressionTable {
+    let cell = if law == b'u' { &ULAW_COMPRESSION } else { &ALAW_COMPRESSION };
+    cell.get_or_init(|| CompressionTable::new(law))
 }
 
 impl ExpansionTables {
@@ -112,7 +136,7 @@ impl ExpansionTables {
 
 impl CompressionTable {
     fn new(law: u8) -> Self {
-        let mut table = [256u16; 65536];
+        let mut table = vec![256u16; 65536].into_boxed_slice();
         
         for code in 0u8..=255 {
             let sample = if law == b'u' {
@@ -165,120 +189,165 @@ fn expand_alaw(code: u8) -> i16 {
     if value & 0x80 != 0 { magnitude } else { -magnitude }
 }
 
-/// Decode g711xz data
+/// Decompress and validate g711xz data, returning (law, frames, payload)
 fn decode_internal(data: &[u8], max_payload: u64) -> Result<(u8, u32, Vec<u8>), G711xzError> {
-    // Decompress xz
     let payload = decompress(data, max_payload)?;
-    
-    // Parse header
     let (law, frames) = parse_header(&payload)?;
-    
-    // Get expansion tables
-    let tables = ExpansionTables::new(law);
-    
-    // Decode body
-    let body = &payload[HEADER_SIZE..];
-    let frames_usize = frames as usize;
-    let mut pcm = vec![0u8; frames_usize * 4];
+    Ok((law, frames, payload))
+}
 
-    for i in 0..frames_usize {
-        // Left channel code
-        let left_code = body[i] as usize;
-        pcm[i * 4] = tables.low[left_code];
-        pcm[i * 4 + 1] = tables.high[left_code];
-        
-        // Right channel code
-        let right_code = body[frames_usize + i] as usize;
-        pcm[i * 4 + 2] = tables.low[right_code];
-        pcm[i * 4 + 3] = tables.high[right_code];
+/// Expand the planar code body into interleaved s16le stereo PCM
+fn expand_body(law: u8, body: &[u8], pcm: &mut [u8]) {
+    let tables = expansion_tables(law);
+    let frames = pcm.len() / 4;
+    let (left, right) = body.split_at(frames);
+    for ((out, &left_code), &right_code) in pcm.chunks_exact_mut(4).zip(left).zip(right) {
+        out[0] = tables.low[left_code as usize];
+        out[1] = tables.high[left_code as usize];
+        out[2] = tables.low[right_code as usize];
+        out[3] = tables.high[right_code as usize];
     }
-    
-    Ok((law, frames, pcm))
+}
+
+/// Write the codes of both channels straight into the planar body. Returns
+/// false when a sample is not a value of the law.
+fn compress_planes(table: &CompressionTable, pcm: &[u8], body: &mut [u8]) -> bool {
+    let frames = body.len() / 2;
+    let (left, right) = body.split_at_mut(frames);
+    for ((frame, left_code), right_code) in pcm.chunks_exact(4).zip(left).zip(right) {
+        let left_sample = u16::from_le_bytes([frame[0], frame[1]]);
+        let right_sample = u16::from_le_bytes([frame[2], frame[3]]);
+        match (table.encode(left_sample), table.encode(right_sample)) {
+            (Ok(l), Ok(r)) => {
+                *left_code = l;
+                *right_code = r;
+            }
+            _ => return false,
+        }
+    }
+    true
 }
 
 /// Encode PCM to g711xz data
 fn encode_internal(pcm: &[u8]) -> Result<Vec<u8>, G711xzError> {
     let frames = pcm.len() / 4;
-    
-    // Convert to u16 samples
-    let mut samples = Vec::with_capacity(frames * 2);
-    for chunk in pcm[..frames * 4].chunks_exact(4) {
-        let left = u16::from_le_bytes([chunk[0], chunk[1]]);
-        let right = u16::from_le_bytes([chunk[2], chunk[3]]);
-        samples.push(left);
-        samples.push(right);
-    }
-    
-    // Split into left/right planes
-    let left: Vec<u16> = samples.iter().step_by(2).copied().collect();
-    let right: Vec<u16> = samples.iter().skip(1).step_by(2).copied().collect();
-    
+    let frames_u32 = u32::try_from(frames).map_err(|_| G711xzError::TooManyFrames(frames))?;
+
+    // One buffer for header + left plane + right plane
+    let mut payload = vec![0u8; HEADER_SIZE + frames * 2];
+
     // Try mu-law first, then A-law
     for law in [b'u', b'a'] {
-        let table = CompressionTable::new(law);
-        
-        let mut left_codes = Vec::with_capacity(left.len());
-        let mut right_codes = Vec::with_capacity(right.len());
-        
-        let mut ok = true;
-        for &s in &left {
-            match table.encode(s) {
-                Ok(code) => left_codes.push(code),
-                Err(_) => { ok = false; break; }
-            }
+        if !compress_planes(compression_table(law), &pcm[..frames * 4], &mut payload[HEADER_SIZE..]) {
+            continue;
         }
-        if !ok { continue; }
-        
-        for &s in &right {
-            match table.encode(s) {
-                Ok(code) => right_codes.push(code),
-                Err(_) => { ok = false; break; }
-            }
-        }
-        if !ok { continue; }
-        
-        // Build header
-        let mut header = Vec::with_capacity(HEADER_SIZE);
-        header.extend_from_slice(MAGIC);
-        header.push(VERSION);
-        header.push(law);
-        header.push(CHANNELS);
-        header.push(0); // reserved
-        header.write_u32::<LittleEndian>(RATE)?;
-        header.write_u32::<LittleEndian>(frames as u32)?;
-        
-        // Combine header + planes
-        let mut payload = Vec::with_capacity(HEADER_SIZE + left_codes.len() + right_codes.len());
-        payload.extend_from_slice(&header);
-        payload.extend_from_slice(&left_codes);
-        payload.extend_from_slice(&right_codes);
 
-        // xz preset 6 with the dictionary cut to the size of the codes, as the
-        // format asks: max(4096, min(8 MiB, frames * 2))
-        let dictionary = (frames * 2).clamp(4096, 8 << 20) as u32;
-        let props = LzmaEncProps::xz_preset(6, false)
-            .map_err(|e| G711xzError::InvalidXz(e.to_string()))?
-            .with_dict_size(dictionary);
-        return encode_xz(&payload, &props, CheckType::Crc64, 0)
-            .map_err(|e| G711xzError::InvalidXz(e.to_string()));
+        payload[0..4].copy_from_slice(MAGIC);
+        payload[4] = VERSION;
+        payload[5] = law;
+        payload[6] = CHANNELS;
+        payload[7] = 0; // reserved
+        payload[8..12].copy_from_slice(&RATE.to_le_bytes());
+        payload[12..16].copy_from_slice(&frames_u32.to_le_bytes());
+
+        return compress(&payload, frames);
     }
-    
+
     Err(G711xzError::RefusedEncode)
 }
 
+/// Compress the payload as one xz stream: LZMA2 preset 6 with the dictionary
+/// cut to the size of the codes, as the format asks:
+/// max(4096, min(8 MiB, frames * 2)), and a CRC64 check
+fn compress(payload: &[u8], frames: usize) -> Result<Vec<u8>, G711xzError> {
+    let encode_error = |e: liblzma::stream::Error| G711xzError::XzEncode(e.to_string());
+    let dictionary = frames.saturating_mul(2).clamp(4096, 8 << 20) as u32;
+    let mut options = LzmaOptions::new_preset(6).map_err(encode_error)?;
+    options.dict_size(dictionary);
+    let mut filters = Filters::new();
+    filters.lzma2(&options);
+    let mut stream = Stream::new_stream_encoder(&filters, Check::Crc64).map_err(encode_error)?;
+
+    let mut data = Vec::with_capacity(payload.len() / 4 + 4096);
+    loop {
+        if data.len() == data.capacity() {
+            data.reserve(data.capacity());
+        }
+        let consumed = stream.total_in() as usize;
+        let status = stream
+            .process_vec(&payload[consumed..], &mut data, Action::Finish)
+            .map_err(encode_error)?;
+        match status {
+            Status::StreamEnd => return Ok(data),
+            Status::MemNeeded if data.len() < data.capacity() => {
+                return Err(G711xzError::XzEncode("encoder made no progress".to_string()));
+            }
+            _ => {}
+        }
+    }
+}
+
 /// Decompress xz data, refusing a payload longer than `max_payload` bytes so a
-/// small file cannot expand without bound
+/// small file cannot expand without bound. Concatenated streams and stream
+/// padding are read; trailing garbage and a truncated stream are errors.
 fn decompress(data: &[u8], max_payload: u64) -> Result<Vec<u8>, G711xzError> {
-    let reader = XzReader::new(Cursor::new(data));
+    let invalid = |e: liblzma::stream::Error| G711xzError::InvalidXz(e.to_string());
+    let mut stream = Stream::new_stream_decoder(u64::MAX, CONCATENATED).map_err(invalid)?;
+    // Never hold more than one byte past the limit
+    let limit = usize::try_from(max_payload.saturating_add(1)).unwrap_or(usize::MAX);
     let mut payload = Vec::new();
-    reader
-        .take(max_payload.saturating_add(1))
-        .read_to_end(&mut payload)
-        .map_err(|e| G711xzError::InvalidXz(e.to_string()))?;
+    loop {
+        if payload.len() as u64 > max_payload {
+            return Err(G711xzError::LongPayload(max_payload));
+        }
+        if payload.len() == payload.capacity() {
+            let room = payload.capacity().max(64 << 10).min(limit - payload.len());
+            payload.reserve_exact(room);
+        }
+        let consumed = stream.total_in() as usize;
+        let produced = payload.len();
+        let status = stream
+            .process_vec(&data[consumed..], &mut payload, Action::Finish)
+            .map_err(invalid)?;
+        if status == Status::StreamEnd {
+            break;
+        }
+        // All input is given, so a call that neither reads nor writes while
+        // there is room for output means the stream ends early
+        let stalled = stream.total_in() as usize == consumed && payload.len() == produced;
+        if stalled && payload.len() < payload.capacity() {
+            // The decoder takes every byte in, so whether the first stream
+            // was cut short or is followed by extra bytes needs a second look
+            let reason = match first_stream_end(data) {
+                Some(end) if end < data.len() => "trailing data after the xz stream",
+                _ => "truncated",
+            };
+            return Err(G711xzError::InvalidXz(reason.to_string()));
+        }
+    }
     if payload.len() as u64 > max_payload {
         return Err(G711xzError::LongPayload(max_payload));
     }
     Ok(payload)
+}
+
+/// Offset just past the first xz stream, or None if it does not end cleanly.
+/// Only called on a failed decode; the output is thrown away as it is made,
+/// and it is no longer than what the failed decode already produced.
+fn first_stream_end(data: &[u8]) -> Option<usize> {
+    let mut stream = Stream::new_stream_decoder(u64::MAX, 0).ok()?;
+    let mut scratch = vec![0u8; 64 << 10];
+    loop {
+        let consumed = stream.total_in() as usize;
+        let produced = stream.total_out();
+        let status = stream.process(&data[consumed..], &mut scratch, Action::Finish).ok()?;
+        if status == Status::StreamEnd {
+            return Some(stream.total_in() as usize);
+        }
+        if stream.total_in() as usize == consumed && stream.total_out() == produced {
+            return None;
+        }
+    }
 }
 
 /// Parse and validate header
@@ -330,6 +399,10 @@ fn parse_header(payload: &[u8]) -> Result<(u8, u32), G711xzError> {
     Ok((law, frames))
 }
 
+// decode and encode release the GIL for the work. The input is borrowed from
+// an immutable bytes object that the caller keeps alive for the whole call, so
+// reading it without the GIL is sound and saves a copy of the whole recording.
+
 /// Python bindings
 #[pyfunction]
 fn decode<'py>(
@@ -337,13 +410,19 @@ fn decode<'py>(
     data: &[u8],
     max_payload: u64,
 ) -> PyResult<(u8, u32, Bound<'py, PyBytes>)> {
-    let (law, frames, pcm) = decode_internal(data, max_payload)?;
-    Ok((law, frames, PyBytes::new_bound(py, &pcm)))
+    let (law, frames, payload) = py.allow_threads(|| decode_internal(data, max_payload))?;
+    // The PCM is written straight into the new bytes object, which nothing
+    // else can see yet, so that too runs without the GIL
+    let pcm = PyBytes::new_bound_with(py, frames as usize * 4, |pcm| {
+        py.allow_threads(|| expand_body(law, &payload[HEADER_SIZE..], pcm));
+        Ok(())
+    })?;
+    Ok((law, frames, pcm))
 }
 
 #[pyfunction]
 fn encode<'py>(py: Python<'py>, pcm: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
-    let data = encode_internal(pcm)?;
+    let data = py.allow_threads(|| encode_internal(pcm))?;
     Ok(PyBytes::new_bound(py, &data))
 }
 

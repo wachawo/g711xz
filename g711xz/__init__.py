@@ -478,6 +478,8 @@ def _encode_bytes(pcm: bytes) -> bytes:
             return bytes(_rust.encode(pcm))
         except _rust.RefusedError as error:
             raise RefusedError(str(error)) from error
+        except ValueError as error:
+            raise FormatError(str(error)) from error
 
     samples = array.array("H")
     samples.frombytes(pcm[: frames * 4])
