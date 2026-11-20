@@ -1,0 +1,66 @@
+# IDE
+.idea/
+.vscode/
+.cursor/
+.claude/
+.codex
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.eggs/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Rust
+target/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Audio dumps
+*.wav
+*.opus
+*.mp3
+*.ogg
+*.g711.xz
+
+# Logs
+logs/
+*.log
+*.csv
+
+# Docker
+.docker/
+
+# Project-local persistent data
+data/
+
+# Docs
+*.md
+!README.md
+!CHANGELOG.md
+!CONTRIBUTING.md
+!docs/**/*.md

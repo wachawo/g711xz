@@ -1,0 +1,165 @@
+## g711xz - almacenamiento sin pérdidas de grabaciones de llamadas G.711
+
+[![CI](https://github.com/wachawo/g711xz/actions/workflows/ci.yml/badge.svg)](https://github.com/wachawo/g711xz/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/wachawo/g711xz/branch/main/graph/badge.svg)](https://codecov.io/gh/wachawo/g711xz?branch=main)
+[![PyPI](https://img.shields.io/pypi/v/g711xz.svg)](https://pypi.org/project/g711xz/)
+[![Downloads](https://img.shields.io/pypi/dm/g711xz.svg)](https://pypi.org/project/g711xz/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/wachawo/g711xz/blob/main/LICENSE)
+[![Python](https://img.shields.io/pypi/pyversions/g711xz.svg)](https://pypi.org/project/g711xz/)
+
+Cada llamada que cruza una red telefónica como PCMU o PCMA ya viene comprimida: cada muestra de 16 bits es uno de, como mucho, 256 valores. Guárdala como WAV y uno de cada dos bytes sobra. Guárdala como MP3 u Opus y el códec reescribe el audio en silencio, con cambios que una persona apenas oye y un reconocedor de voz sí.
+
+g711xz guarda la llamada tal como llegó. Convierte las muestras de nuevo en sus códigos G.711 de 8 bits, las empaqueta con xz y devuelve el PCM original bit a bit. Los tonos y el silencio se reducen casi a nada; una conversación ocupa más que Opus. Es una herramienta de línea de comandos y una biblioteca en Python puro para Linux, macOS y Windows.
+
+**[English](https://github.com/wachawo/g711xz/blob/main/README.md)** | **[Español](https://github.com/wachawo/g711xz/blob/main/docs/README_ES.md)** | [Português](https://github.com/wachawo/g711xz/blob/main/docs/README_PT.md) | [Français](https://github.com/wachawo/g711xz/blob/main/docs/README_FR.md) | [Deutsch](https://github.com/wachawo/g711xz/blob/main/docs/README_DE.md) | [Italiano](https://github.com/wachawo/g711xz/blob/main/docs/README_IT.md) | [Русский](https://github.com/wachawo/g711xz/blob/main/docs/README_RU.md) | [中文](https://github.com/wachawo/g711xz/blob/main/docs/README_ZH.md) | [日本語](https://github.com/wachawo/g711xz/blob/main/docs/README_JA.md) | [हिन्दी](https://github.com/wachawo/g711xz/blob/main/docs/README_HI.md)
+
+### Requisitos
+
+- **Python 3.9 o superior**
+- **Linux, macOS, Windows**: sin requisitos específicos de la plataforma
+- **Dependencias**: ninguna, basta con la biblioteca estándar
+- **Opcional**: NumPy o la extensión en Rust, que se usan como aceleradores si están presentes
+
+### Formato de archivo
+
+Un archivo es una llamada grabada: el canal izquierdo es quien llama y el canal derecho es quien recibe la llamada.
+
+- ✅ Sin pérdidas: la decodificación devuelve el PCM de 16 bits de la grabadora, bit a bit
+- ✅ mu-law (PCMU) y A-law (PCMA)
+- ✅ Alrededor de un cuarto más pequeño que xz sobre el PCM
+- ✅ Un único flujo xz estándar, legible solo con `xz`
+- ❌ Audio que no es G.711 puro: se rechaza en lugar de redondearse
+- ❌ Metadatos: el archivo contiene el audio y nada más
+
+### Comparación
+
+| | PCM | xz | g711xz | Opus 32 kbit/s | MP3 32 kbit/s |
+|---|---|---|---|---|---|
+| Se decodifica al original | sí | sí | sí | no | no |
+| Palabras que coinciden con la transcripción original, % | 100 | 99.9 | 99.9 | 94.2 | 93.8 |
+| Llamadas con transcripción idéntica palabra por palabra, % | 100 | 99.8 | 99.8 | 67.3 | 60.5 |
+| Tamaño medio, kbit/s | 256 | 24.7 | 18.8 | 20.2 | 32.4 |
+| Llamada de 5 minutos, MB | 9.60 | 2.29 | 1.77 | 0.97 | 1.20 |
+| CPU para codificar, respecto a Opus | 0 | 0.4 | 0.2 | 1 | 0.16 |
+
+- **xz solo también es sin pérdidas, pero más grande.** Comprime las muestras de 16 bits, y g711xz los códigos de 8 bits de los que salieron: xz ocupa alrededor de un 30% más y gasta el doble de CPU.
+- **El 0,1% es del reconocedor, no del archivo.** Los formatos sin pérdidas se decodifican exactamente a los bytes originales; una segunda pasada del mismo audio no siempre da las mismas palabras.
+- **Por qué una conversación ocupa más que Opus y MP3.** Ellos trabajan con un bitrate fijado y descartan lo que no cabe. g711xz conserva cada muestra, y en la voz los bits bajos de cada código G.711 llevan ruido de línea y detalles finos que ningún compresor sin pérdidas puede reducir. Los tonos y el silencio funcionan al revés: se comprimen casi a nada, así que en muchas llamadas g711xz sale más pequeño de media.
+
+### Instalación
+
+```bash
+pip3 install g711xz
+```
+
+O desde GitHub:
+
+```bash
+pip3 install git+https://github.com/wachawo/g711xz.git
+```
+
+### Uso
+
+```bash
+# Mostrar el encabezado, la duración y el bitrate de un archivo
+g711xz info rec.g711.xz
+
+# Decodificar a un WAV estéreo sin pérdidas (escribe rec.wav)
+g711xz decode rec.g711.xz
+
+# Decodificar a un archivo elegido
+g711xz decode rec.g711.xz out.wav
+
+# Codificar un WAV de 2 canales, 16 bits y 8000 Hz (escribe rec.g711.xz)
+g711xz encode rec.wav
+
+# Convertir a la otra ley, con pérdidas (u = mu-law, a = A-law)
+g711xz transcode rec.g711.xz a rec.alaw.g711.xz
+
+# Mostrar ayuda
+g711xz --help
+```
+
+Ejemplo de salida de `g711xz info`:
+
+```
+rec.g711.xz:
+  format    CRG7 version 1
+  law       mu-law (PCMU)
+  channels  2 (left caller, right callee)
+  rate      8000 Hz
+  frames    480000
+  duration  60.000 s
+  size      108316 bytes (14.4 kbit/s)
+```
+
+### API de Python
+
+```python
+import g711xz
+
+# Decodificar: law es b"u" o b"a", pcm es estéreo s16le intercalado a 8000 Hz
+law, frames, pcm = g711xz.decode("rec.g711.xz")
+g711xz.write_wav("rec.wav", pcm)
+
+# Codificar: devuelve los bytes de un archivo .g711.xz
+data = g711xz.encode(g711xz.read_wav("rec.wav"))
+```
+
+La codificación lanza `g711xz.RefusedError` cuando el PCM no es G.711 puro, y la lectura lanza `g711xz.FormatError` ante un archivo dañado.
+
+### Códigos de salida
+
+| Código | Significado |
+|------|---------|
+| 0    | Éxito. |
+| 2    | Entrada incorrecta: un archivo dañado o ajeno, un WAV con formato equivocado, un archivo inexistente, argumentos de CLI incorrectos. |
+| 3    | Codificación rechazada: el PCM no es G.711 puro, por lo que no se puede crear un archivo sin pérdidas. |
+
+### Comandos
+
+- `info FILE [FILE ...]` - Mostrar el encabezado, la duración y el bitrate
+- `decode FILE.g711.xz [OUT.wav]` - Decodificar a un WAV estéreo sin pérdidas
+- `encode FILE.wav [OUT.g711.xz]` - Codificar un WAV de 2 canales, 16 bits y 8000 Hz
+- `transcode FILE.g711.xz {u,a} OUT.g711.xz` - Convertir a la otra ley (con pérdidas)
+- `-h, --help` - Mostrar ayuda
+
+### Características
+
+- **Ida y vuelta sin pérdidas** para grabaciones mu-law y A-law
+- **Codificador estricto**: rechaza el audio que no es G.711 puro en lugar de guardarlo con pérdidas
+- **Lector estricto**: rechaza archivos dañados, truncados o demasiado grandes
+- **Decodificador en flujo** que nunca construye todo el PCM en memoria
+- **Conversión entre leyes** (de mu-law a A-law y viceversa)
+- **Aceleradores opcionales**: NumPy y una extensión en Rust, con una alternativa en Python puro
+- **Multiplataforma** (Linux, macOS, Windows)
+
+**[Features Documentation](https://github.com/wachawo/g711xz/blob/main/docs/FEATURES.md)** - Guía completa de los comandos, la API de Python, las reglas de validación, los mensajes de error y ejemplos.
+
+**[File Format](https://github.com/wachawo/g711xz/blob/main/docs/FORMAT.md)** - Especificación de la estructura de `.g711.xz` con un vector de prueba, suficiente para escribir un lector o un escritor independiente.
+
+### Herramientas de desarrollo
+
+```bash
+pip3 install -e ".[dev]"
+ruff check .
+ruff format --check .
+mypy g711xz
+
+# Extensión opcional en Rust (requiere un toolchain de Rust y un virtualenv activo)
+maturin develop --release
+```
+
+### Pruebas
+
+```bash
+pytest --cov=g711xz --cov-report=term-missing --cov-report=xml
+# CI sube automáticamente coverage.xml a Codecov
+
+# Solo con la biblioteca estándar
+python3 -m unittest -v test_g711xz
+```
+
+### Licencia
+
+MIT License

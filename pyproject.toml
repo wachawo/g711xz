@@ -1,0 +1,223 @@
+[build-system]
+requires = [
+    "hatchling",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "g711xz"
+version = "0.0.0"
+description = "Lossless storage for G.711 call recordings: read, decode and encode .g711.xz files"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
+    "Topic :: Multimedia :: Sound/Audio :: Conversion",
+    "Topic :: Communications :: Telephony",
+]
+keywords = [
+    "g711",
+    "g.711",
+    "mu-law",
+    "alaw",
+    "xz",
+    "lzma",
+    "call-recording",
+    "telephony",
+    "pcm",
+    "audio-codec",
+]
+authors = [
+    { name = "Aleksandr Pimenov", email = "167337375+wachawo@users.noreply.github.com" },
+]
+maintainers = [
+    { name = "Aleksandr Pimenov", email = "167337375+wachawo@users.noreply.github.com" },
+]
+dependencies = []
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+Homepage = "https://github.com/wachawo/g711xz"
+Repository = "https://github.com/wachawo/g711xz"
+Issues = "https://github.com/wachawo/g711xz/issues"
+Documentation = "https://github.com/wachawo/g711xz/blob/main/docs/FEATURES.md"
+Changelog = "https://github.com/wachawo/g711xz/blob/main/docs/CHANGELOG.md"
+
+[project.optional-dependencies]
+numpy = [
+    "numpy>=1.24",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "maturin>=1.0",
+    "build>=1.0",
+    "twine>=5.0",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+g711xz = "g711xz:main"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "g711xz",
+]
+exclude = [
+    "g711xz/_rust*",
+    "target/**",
+    "__pycache__/**",
+    "*.egg-info/**",
+    "dist/**",
+    "build/**",
+    ".git/**",
+    "*.pyc",
+    ".pytest_cache/**",
+    ".ruff_cache/**",
+    ".mypy_cache/**",
+]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "g711xz/_rust*",
+    "target/**",
+    "dist/**",
+]
+
+[tool.hatch.envs.default]
+dependencies = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+]
+
+[tool.hatch.envs.test]
+dependencies = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+]
+
+[tool.hatch.envs.fmt]
+dependencies = [
+    "ruff>=0.5",
+]
+
+[tool.hatch.envs.fmt.scripts]
+fmt = "ruff format ."
+check = "ruff check ."
+
+[tool.hatch.envs.typecheck]
+dependencies = [
+    "mypy>=1.10",
+]
+
+[tool.hatch.envs.typecheck.scripts]
+check = "mypy g711xz"
+
+[tool.maturin]
+module-name = "g711xz._rust"
+cargo-manifest-path = "Cargo.toml"
+manylinux = "manylinux2014"
+python-source = "."
+
+[tool.pytest.ini_options]
+testpaths = [
+    ".",
+]
+python_files = [
+    "test_*.py",
+]
+python_functions = [
+    "test_*",
+]
+addopts = "-v --tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+src = [
+    ".",
+]
+exclude = [
+    "*.md",
+    "__pycache__",
+    ".git",
+    ".venv",
+    "venv",
+    "dist",
+    "build",
+    "*.egg-info",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "W",
+    "UP",
+    "B",
+    "C4",
+    "T20",
+    "ARG",
+    "SIM",
+    "TCH",
+]
+ignore = [
+    "T201",
+    "S101",
+    "SIM108",
+    "TC003",
+]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+strict_optional = true
+
+# Optional accelerators: absent in a plain install, the code falls back.
+[[tool.mypy.overrides]]
+module = [
+    "numpy",
+    "g711xz._rust",
+]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = [
+    ".",
+]
+omit = [
+    "test_*.py",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
