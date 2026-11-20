@@ -36,15 +36,15 @@ Eine Datei ist ein aufgezeichnetes Gespräch: Der linke Kanal ist der Anrufer, d
 | | PCM | xz | g711xz | Opus 32 kbit/s | MP3 32 kbit/s |
 |---|---|---|---|---|---|
 | Dekodiert zurück zum Original | ja | ja | ja | nein | nein |
-| Wörter wie im Original-Transkript, % | 100 | 99.9 | 99.9 | 94.2 | 93.8 |
-| Anrufe mit Wort für Wort gleichem Transkript, % | 100 | 99.8 | 99.8 | 67.3 | 60.5 |
-| Mittlere Größe, kbit/s | 256 | 24.7 | 18.8 | 20.2 | 32.4 |
-| Anruf von 5 Minuten, MB | 9.60 | 2.29 | 1.77 | 0.97 | 1.20 |
-| CPU zum Kodieren, relativ zu Opus | 0 | 0.4 | 0.2 | 1 | 0.16 |
+| Wörter wie im Original-Transkript, % | 100 | 100 | 100 | 94.9 | 94.4 |
+| Anrufe mit Wort für Wort gleichem Transkript, % | 100 | 100 | 100 | 71.9 | 65.7 |
+| Mittlere Größe, kbit/s | 256 | 28.6 | 21.8 | 20.8 | 32.4 |
+| 5 Minuten, MB | 9.60 | 1.07 | 0.82 | 0.78 | 1.22 |
+| CPU zum Kodieren, relativ zu Opus | 0 | 0.43 | 0.23 | 1 | 0.16 |
 
 - **xz allein ist auch verlustfrei, nur größer.** Es komprimiert die 16-Bit-Samples, g711xz die 8-Bit-Codes, aus denen sie entstanden sind: xz wird etwa 30 % größer und braucht doppelt so viel CPU.
-- **Die 0,1 % kommen von der Spracherkennung, nicht von der Datei.** Die verlustfreien Formate dekodieren genau zu den ursprünglichen Bytes; ein zweiter Durchlauf desselben Tons liefert nicht immer dieselben Wörter.
-- **Warum ein Gespräch größer als Opus und MP3 ist.** Diese Codecs arbeiten auf eine Bitrate hin und werfen weg, was nicht hineinpasst. g711xz behält jedes Sample, und in Sprache tragen die unteren Bits jedes G.711-Codes Leitungsrauschen und feine Details, die kein verlustfreier Kompressor verkleinern kann. Freizeichen und Stille verhalten sich umgekehrt: Sie schrumpfen fast auf nichts, deshalb ist g711xz über viele Anrufe im Mittel kleiner.
+- **Die Spracherkennung ist nicht schuld.** Derselbe Ton, zweimal transkribiert, stimmt in 100 % der Wörter und 99,6 % der Anrufe überein; die Abweichungen in den Spalten Opus und MP3 kommen also von den Codecs.
+- **Warum ein Gespräch größer als Opus und MP3 ist.** Diese Codecs arbeiten auf eine Bitrate hin und werfen weg, was nicht hineinpasst. g711xz behält jedes Sample, und in Sprache tragen die unteren Bits jedes G.711-Codes Leitungsrauschen und feine Details, die kein verlustfreier Kompressor verkleinern kann. Freizeichen und Stille verhalten sich umgekehrt: Sie schrumpfen fast auf nichts, deshalb liegt g711xz über viele Anrufe nahe bei Opus und deutlich unter MP3.
 
 ### Installation
 

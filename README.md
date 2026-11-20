@@ -36,15 +36,15 @@ One file is one recorded call: the left channel is the caller, the right channel
 | | PCM | xz | g711xz | Opus 32 kbit/s | MP3 32 kbit/s |
 |---|---|---|---|---|---|
 | Decodes back to the original | yes | yes | yes | no | no |
-| Words matching the original transcript, % | 100 | 99.9 | 99.9 | 94.2 | 93.8 |
-| Calls with a word-for-word identical transcript, % | 100 | 99.8 | 99.8 | 67.3 | 60.5 |
-| Average size, kbit/s | 256 | 24.7 | 18.8 | 20.2 | 32.4 |
-| 5-minute call, MB | 9.60 | 2.29 | 1.77 | 0.97 | 1.20 |
-| CPU to encode, relative to Opus | 0 | 0.4 | 0.2 | 1 | 0.16 |
+| Words matching the original transcript, % | 100 | 100 | 100 | 94.9 | 94.4 |
+| Calls with a word-for-word identical transcript, % | 100 | 100 | 100 | 71.9 | 65.7 |
+| Average size, kbit/s | 256 | 28.6 | 21.8 | 20.8 | 32.4 |
+| 5 minutes, MB | 9.60 | 1.07 | 0.82 | 0.78 | 1.22 |
+| CPU to encode, relative to Opus | 0 | 0.43 | 0.23 | 1 | 0.16 |
 
 - **xz alone is lossless too, just bigger.** It compresses the 16-bit samples, g711xz the 8-bit codes they were made from: xz comes out about 30% larger and takes twice the CPU.
-- **The 0.1% is the recognizer, not the file.** The lossless formats decode to exactly the original bytes; a second pass of the same audio does not always give the same words.
-- **Why a conversation is larger than Opus and MP3.** They work to a bitrate and throw away whatever does not fit. g711xz keeps every sample, and in speech the low bits of each G.711 code carry line noise and fine detail that no lossless compressor can shrink. Ringing and silence work the other way: they compress to almost nothing, so across many calls g711xz comes out smaller on average.
+- **The recognizer is not to blame.** The same audio transcribed twice agrees on 100% of the words and on 99.6% of the calls, so the gaps in the Opus and MP3 columns come from the codecs.
+- **Why a conversation is larger than Opus and MP3.** They work to a bitrate and throw away whatever does not fit. g711xz keeps every sample, and in speech the low bits of each G.711 code carry line noise and fine detail that no lossless compressor can shrink. Ringing and silence work the other way: they compress to almost nothing, so across many calls g711xz ends up close to Opus and well below MP3.
 
 ### Installation
 

@@ -36,15 +36,15 @@ Un fichier correspond à un appel enregistré : le canal gauche est l'appelant, 
 | | PCM | xz | g711xz | Opus 32 kbit/s | MP3 32 kbit/s |
 |---|---|---|---|---|---|
 | Se décode vers l'original | oui | oui | oui | non | non |
-| Mots identiques à la transcription d'origine, % | 100 | 99.9 | 99.9 | 94.2 | 93.8 |
-| Appels à la transcription identique mot pour mot, % | 100 | 99.8 | 99.8 | 67.3 | 60.5 |
-| Taille moyenne, kbit/s | 256 | 24.7 | 18.8 | 20.2 | 32.4 |
-| Appel de 5 minutes, MB | 9.60 | 2.29 | 1.77 | 0.97 | 1.20 |
-| CPU pour encoder, par rapport à Opus | 0 | 0.4 | 0.2 | 1 | 0.16 |
+| Mots identiques à la transcription d'origine, % | 100 | 100 | 100 | 94.9 | 94.4 |
+| Appels à la transcription identique mot pour mot, % | 100 | 100 | 100 | 71.9 | 65.7 |
+| Taille moyenne, kbit/s | 256 | 28.6 | 21.8 | 20.8 | 32.4 |
+| 5 minutes, MB | 9.60 | 1.07 | 0.82 | 0.78 | 1.22 |
+| CPU pour encoder, par rapport à Opus | 0 | 0.43 | 0.23 | 1 | 0.16 |
 
 - **xz seul est aussi sans perte, mais plus gros.** Il compresse les échantillons de 16 bits, g711xz les codes de 8 bits dont ils sont issus : xz est environ 30 % plus gros et demande deux fois plus de CPU.
-- **Les 0,1 % viennent de la reconnaissance vocale, pas du fichier.** Les formats sans perte se décodent exactement vers les octets d'origine ; un second passage du même son ne donne pas toujours les mêmes mots.
-- **Pourquoi une conversation est plus grosse qu'en Opus et en MP3.** Ces codecs visent un débit et jettent ce qui ne rentre pas. g711xz garde chaque échantillon, et dans la parole les bits de poids faible de chaque code G.711 portent du bruit de ligne et des détails fins qu'aucun compresseur sans perte ne peut réduire. Les sonneries et les silences font l'inverse : ils ne pèsent presque rien, si bien que sur de nombreux appels g711xz est plus petit en moyenne.
+- **La reconnaissance vocale n'est pas en cause.** Le même son transcrit deux fois concorde sur 100 % des mots et sur 99,6 % des appels : les écarts des colonnes Opus et MP3 viennent des codecs.
+- **Pourquoi une conversation est plus grosse qu'en Opus et en MP3.** Ces codecs visent un débit et jettent ce qui ne rentre pas. g711xz garde chaque échantillon, et dans la parole les bits de poids faible de chaque code G.711 portent du bruit de ligne et des détails fins qu'aucun compresseur sans perte ne peut réduire. Les sonneries et les silences font l'inverse : ils ne pèsent presque rien, si bien que sur de nombreux appels g711xz reste proche d'Opus et bien en dessous du MP3.
 
 ### Installation
 

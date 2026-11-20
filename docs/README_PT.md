@@ -36,15 +36,15 @@ Um arquivo é uma chamada gravada: o canal esquerdo é quem liga e o canal direi
 | | PCM | xz | g711xz | Opus 32 kbit/s | MP3 32 kbit/s |
 |---|---|---|---|---|---|
 | Decodifica de volta ao original | sim | sim | sim | não | não |
-| Palavras iguais às da transcrição original, % | 100 | 99.9 | 99.9 | 94.2 | 93.8 |
-| Chamadas com transcrição idêntica palavra por palavra, % | 100 | 99.8 | 99.8 | 67.3 | 60.5 |
-| Tamanho médio, kbit/s | 256 | 24.7 | 18.8 | 20.2 | 32.4 |
-| Chamada de 5 minutos, MB | 9.60 | 2.29 | 1.77 | 0.97 | 1.20 |
-| CPU para codificar, em relação ao Opus | 0 | 0.4 | 0.2 | 1 | 0.16 |
+| Palavras iguais às da transcrição original, % | 100 | 100 | 100 | 94.9 | 94.4 |
+| Chamadas com transcrição idêntica palavra por palavra, % | 100 | 100 | 100 | 71.9 | 65.7 |
+| Tamanho médio, kbit/s | 256 | 28.6 | 21.8 | 20.8 | 32.4 |
+| 5 minutos, MB | 9.60 | 1.07 | 0.82 | 0.78 | 1.22 |
+| CPU para codificar, em relação ao Opus | 0 | 0.43 | 0.23 | 1 | 0.16 |
 
 - **O xz sozinho também é sem perdas, só que maior.** Ele comprime as amostras de 16 bits, e o g711xz os códigos de 8 bits que as geraram: o xz fica cerca de 30% maior e gasta o dobro de CPU.
-- **Os 0,1% são do reconhecedor, não do arquivo.** Os formatos sem perdas decodificam exatamente para os bytes originais; uma segunda passada do mesmo áudio nem sempre dá as mesmas palavras.
-- **Por que uma conversa fica maior que Opus e MP3.** Eles trabalham com um bitrate definido e descartam o que não cabe. O g711xz guarda cada amostra, e na fala os bits baixos de cada código G.711 carregam ruído de linha e detalhes finos que nenhum compressor sem perdas consegue reduzir. Toques e silêncio funcionam ao contrário: quase desaparecem na compressão, então em muitas chamadas o g711xz fica menor em média.
+- **O reconhecedor não é o culpado.** O mesmo áudio transcrito duas vezes coincide em 100% das palavras e em 99,6% das chamadas, então as diferenças nas colunas de Opus e MP3 vêm dos codecs.
+- **Por que uma conversa fica maior que Opus e MP3.** Eles trabalham com um bitrate definido e descartam o que não cabe. O g711xz guarda cada amostra, e na fala os bits baixos de cada código G.711 carregam ruído de linha e detalhes finos que nenhum compressor sem perdas consegue reduzir. Toques e silêncio funcionam ao contrário: quase desaparecem na compressão, então em muitas chamadas o g711xz fica perto do Opus e bem abaixo do MP3.
 
 ### Instalação
 
