@@ -1,5 +1,9 @@
 # CHANGELOG
 
+0.0.1 (2026-11-20)
+========
+- Same code as 0.0.0, published to PyPI
+
 0.0.0 (2026-11-20)
 ========
 - Command line tool with `info`, `decode`, `encode` and `transcode`

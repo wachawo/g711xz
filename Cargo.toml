@@ -1,6 +1,6 @@
 [package]
 name = "g711xz"
-version = "0.0.0"
+version = "0.0.1"
 edition = "2021"
 description = "Rust implementation of g711xz call recording codec with PyO3 bindings"
 license = "MIT"

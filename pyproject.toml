@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "g711xz"
-version = "0.0.0"
+version = "0.0.1"
 description = "Lossless storage for G.711 call recordings: read, decode and encode .g711.xz files"
 readme = "README.md"
 requires-python = ">=3.9"
