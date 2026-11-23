@@ -48,7 +48,7 @@ pub enum G711xzError {
     #[error("channels is {0}, expected {1}")]
     WrongChannels(u8, u8),
     
-    #[error("reserved byte is {0}, expected 0")]
+    #[error("unknown mode {0}, this reader knows 0 (lossless) and 1 (vox)")]
     ReservedSet(u8),
     
     #[error("sample rate is {0}, expected {1}")]
@@ -379,8 +379,10 @@ fn parse_header(payload: &[u8]) -> Result<(u8, u32), G711xzError> {
         return Err(G711xzError::WrongChannels(channels, CHANNELS));
     }
     
+    // Byte 7 is the mode: 0 lossless, 1 vox (beta, quiet stretches replaced).
+    // Both hold plain codes and decode the same way.
     let reserved = cursor.read_u8()?;
-    if reserved != 0 {
+    if reserved > 1 {
         return Err(G711xzError::ReservedSet(reserved));
     }
     

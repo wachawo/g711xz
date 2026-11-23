@@ -33,17 +33,20 @@ g711xz 原样保存通话。它把采样还原为 8 位 G.711 编码，用 xz �
 
 ### 对比
 
-| | PCM | xz | g711xz | Opus 32 kbit/s | MP3 32 kbit/s |
-|---|---|---|---|---|---|
-| 能解码回原始音频 | 是 | 是 | 是 | 否 | 否 |
-| 与原始转写稿相同的词, % | 100 | 100 | 100 | 94.9 | 94.4 |
-| 转写稿逐词完全相同的通话, % | 100 | 100 | 100 | 71.9 | 65.7 |
-| 平均体积, kbit/s | 256 | 28.6 | 21.8 | 20.8 | 32.4 |
-| 5 分钟，MB | 9.60 | 1.07 | 0.82 | 0.78 | 1.22 |
-| 编码 CPU，相对 Opus | 0 | 0.43 | 0.23 | 1 | 0.16 |
+| | ULAW | XZ | G711XZ | G711XZ VOX | OPUS 32 kbit/s | MP3 32 kbit/s |
+|---|---|---|---|---|---|---|
+| 能解码回原始音频 | 是 | 是 | 是 | 仅语音 | 否 | 否 |
+| 与原始转写稿相同的词, % | 100 | 100 | 100 | 99.96 | 94.6 | 95.0 |
+| 转写稿逐词完全相同的通话, % | 100 | 100 | 100 | 99.87 | 71.7 | 71.4 |
+| 平均体积, kbit/s | 128 | 23.7 | 20.8 | 18.4 | 20.6 | 32.4 |
+| 5 分钟，MB | 4.80 | 0.89 | 0.78 | 0.69 | 0.77 | 1.22 |
+| 编码 CPU 占用，相对 Opus 的 % | 0 | 24 | 13 | 12 | 100 | 16 |
 
-- **单独用 xz 也是无损的，只是更大。** 它压缩的是 16 位采样，而 g711xz 压缩的是生成这些采样的 8 位编码：xz 大约大 30%，CPU 消耗是两倍。
-- **问题不在识别器。** 同一段音频转写两次，词的一致率为 100%，通话的一致率为 99.6%，所以 Opus 和 MP3 两列的差异来自编解码器。
+ULAW 是原始的 8 kHz 立体声 mu-law 数据流。XZ 是对这些字节执行 `xz -6`，OPUS 是 `opusenc --bitrate 32 --speech`，MP3 是 `lame -b 32`。转写稿相关的两行，是把每种格式的 Whisper 转写稿与原始音频的转写稿进行比较。
+
+- **单独用 xz 也是无损的，只是更大。** 它按字节原本的顺序直接压缩，而 g711xz 会先把通话的每一方单独排布：xz 大约大 14%，CPU 消耗是两倍。
+- **G711XZ VOX 是测试版 VOX 模式**（`g711xz encode in.wav --vox`），默认关闭。语音逐位保留，长时间的平稳线路噪声会被替换，因此文件更小，但不再是完全一致的副本。任何 0.0.3 版的读取方都会像打开无损文件一样打开它，`g711xz info` 会显示模式。参见 [VOX Mode (Beta)](FEATURES.md#vox-mode-beta)。
+- **问题不在识别器。** 同一段音频转写两次，词的一致率为 99.98%，通话的一致率为 99.8%，所以 Opus 和 MP3 两列的差异来自编解码器。
 - **为什么对话比 Opus 和 MP3 大。** 它们按目标码率编码，装不下的部分直接丢弃。g711xz 保留每一个采样，而在语音中，每个 G.711 编码的低位承载着线路噪声和细节，任何无损压缩都无法缩小。振铃和静音则相反：几乎被压缩为零，因此在大量通话中 g711xz 的体积接近 Opus，并明显小于 MP3。
 
 ### 安装
@@ -76,6 +79,12 @@ g711xz encode rec.wav
 # 转换为另一种压扩律，有损（u = mu-law，a = A-law）
 g711xz transcode rec.g711.xz a rec.alaw.g711.xz
 
+# 测试版：写入更小的 VOX 文件，它不是完全一致的副本（写入 rec.vox.g711.xz）
+g711xz encode rec.wav --vox
+
+# VOX 文件的读取方式与其他文件相同；info 和 decode 的结果行会显示模式
+g711xz decode rec.vox.g711.xz
+
 # 显示帮助
 g711xz --help
 ```
@@ -85,6 +94,7 @@ g711xz --help
 ```
 rec.g711.xz:
   format    CRG7 version 1
+  mode      lossless
   law       mu-law (PCMU)
   channels  2 (left caller, right callee)
   rate      8000 Hz
@@ -104,9 +114,16 @@ g711xz.write_wav("rec.wav", pcm)
 
 # 编码：返回 .g711.xz 文件的字节内容
 data = g711xz.encode(g711xz.read_wav("rec.wav"))
+
+# 测试版 VOX 文件：写入时默认关闭，读取方式与其他文件相同
+data = g711xz.encode(g711xz.read_wav("rec.wav"), vox=True)
+law, frames, pcm = g711xz.decode(data)
+
+# 需要完全一致的录音？检查模式
+exact = g711xz.read_mode(data) != g711xz.MODE_VOX
 ```
 
-当 PCM 不是纯 G.711 时，编码会抛出 `g711xz.RefusedError`；读取损坏的文件时会抛出 `g711xz.FormatError`。
+当 PCM 不是纯 G.711 时，编码会抛出 `g711xz.RefusedError`；读取损坏的文件时会抛出 `g711xz.FormatError`。VOX 文件不算错误：`g711xz.read_mode` 可以把它和无损文件区分开。
 
 ### 退出码
 
@@ -120,8 +137,9 @@ data = g711xz.encode(g711xz.read_wav("rec.wav"))
 
 - `info FILE [FILE ...]` - 显示头部、时长和码率
 - `decode FILE.g711.xz [OUT.wav]` - 解码为无损立体声 WAV
-- `encode FILE.wav [OUT.g711.xz]` - 编码 2 声道、16 位、8000 Hz 的 WAV
+- `encode FILE.wav [OUT.g711.xz] [--vox]` - 编码 2 声道、16 位、8000 Hz 的 WAV
 - `transcode FILE.g711.xz {u,a} OUT.g711.xz` - 转换为另一种压扩律（有损）
+- `--vox` - 测试版，仅用于 `encode`：写入 VOX 文件。`info`、`decode` 和 `transcode` 两种模式都能读取，并会指明模式
 - `-h, --help` - 显示帮助
 
 ### 功能

@@ -33,17 +33,20 @@ Un archivo es una llamada grabada: el canal izquierdo es quien llama y el canal 
 
 ### Comparación
 
-| | PCM | xz | g711xz | Opus 32 kbit/s | MP3 32 kbit/s |
-|---|---|---|---|---|---|
-| Se decodifica al original | sí | sí | sí | no | no |
-| Palabras que coinciden con la transcripción original, % | 100 | 100 | 100 | 94.9 | 94.4 |
-| Llamadas con transcripción idéntica palabra por palabra, % | 100 | 100 | 100 | 71.9 | 65.7 |
-| Tamaño medio, kbit/s | 256 | 28.6 | 21.8 | 20.8 | 32.4 |
-| 5 minutos, MB | 9.60 | 1.07 | 0.82 | 0.78 | 1.22 |
-| CPU para codificar, respecto a Opus | 0 | 0.43 | 0.23 | 1 | 0.16 |
+| | ULAW | XZ | G711XZ | G711XZ VOX | OPUS 32 kbit/s | MP3 32 kbit/s |
+|---|---|---|---|---|---|---|
+| Se decodifica al original | sí | sí | sí | solo la voz | no | no |
+| Palabras que coinciden con la transcripción original, % | 100 | 100 | 100 | 99.96 | 94.6 | 95.0 |
+| Llamadas con transcripción idéntica palabra por palabra, % | 100 | 100 | 100 | 99.87 | 71.7 | 71.4 |
+| Tamaño medio, kbit/s | 128 | 23.7 | 20.8 | 18.4 | 20.6 | 32.4 |
+| 5 minutos, MB | 4.80 | 0.89 | 0.78 | 0.69 | 0.77 | 1.22 |
+| Uso de CPU para codificar, % de Opus | 0 | 24 | 13 | 12 | 100 | 16 |
 
-- **xz solo también es sin pérdidas, pero más grande.** Comprime las muestras de 16 bits, y g711xz los códigos de 8 bits de los que salieron: xz ocupa alrededor de un 30% más y gasta el doble de CPU.
-- **El reconocedor no tiene la culpa.** El mismo audio transcrito dos veces coincide en el 100% de las palabras y en el 99,6% de las llamadas, así que las diferencias en las columnas de Opus y MP3 vienen de los códecs.
+ULAW es el flujo mu-law en bruto, 8 kHz, estéreo. XZ es `xz -6` sobre esos bytes, OPUS es `opusenc --bitrate 32 --speech`, MP3 es `lame -b 32`. Las filas de transcripción comparan una transcripción de Whisper de cada formato con la transcripción del audio original.
+
+- **xz solo también es sin pérdidas, pero más grande.** Toma los bytes tal como vienen, y g711xz coloca primero cada lado de la llamada por separado: xz ocupa alrededor de un 14% más y gasta el doble de CPU.
+- **G711XZ VOX es el modo VOX en beta** (`g711xz encode in.wav --vox`), desactivado por defecto. La voz se conserva bit a bit y los tramos largos de ruido de línea uniforme se sustituyen, así que el archivo es más pequeño pero ya no es una copia exacta. Cualquier lector 0.0.3 lo abre como un archivo sin pérdidas, y `g711xz info` muestra el modo. Véase [VOX Mode (Beta)](FEATURES.md#vox-mode-beta).
+- **El reconocedor no tiene la culpa.** El mismo audio transcrito dos veces coincide en el 99,98% de las palabras y en el 99,8% de las llamadas, así que las diferencias en las columnas de Opus y MP3 vienen de los códecs.
 - **Por qué una conversación ocupa más que Opus y MP3.** Ellos trabajan con un bitrate fijado y descartan lo que no cabe. g711xz conserva cada muestra, y en la voz los bits bajos de cada código G.711 llevan ruido de línea y detalles finos que ningún compresor sin pérdidas puede reducir. Los tonos y el silencio funcionan al revés: se comprimen casi a nada, así que en muchas llamadas g711xz queda cerca de Opus y muy por debajo de MP3.
 
 ### Instalación
@@ -76,6 +79,12 @@ g711xz encode rec.wav
 # Convertir a la otra ley, con pérdidas (u = mu-law, a = A-law)
 g711xz transcode rec.g711.xz a rec.alaw.g711.xz
 
+# Beta: escribir un archivo VOX más pequeño, que no es una copia exacta (escribe rec.vox.g711.xz)
+g711xz encode rec.wav --vox
+
+# Un archivo VOX se lee como cualquier otro; info y la línea de resultado de decode muestran el modo
+g711xz decode rec.vox.g711.xz
+
 # Mostrar ayuda
 g711xz --help
 ```
@@ -85,6 +94,7 @@ Ejemplo de salida de `g711xz info`:
 ```
 rec.g711.xz:
   format    CRG7 version 1
+  mode      lossless
   law       mu-law (PCMU)
   channels  2 (left caller, right callee)
   rate      8000 Hz
@@ -104,9 +114,16 @@ g711xz.write_wav("rec.wav", pcm)
 
 # Codificar: devuelve los bytes de un archivo .g711.xz
 data = g711xz.encode(g711xz.read_wav("rec.wav"))
+
+# Archivo VOX beta: desactivado por defecto al escribir, se lee como cualquier otro archivo
+data = g711xz.encode(g711xz.read_wav("rec.wav"), vox=True)
+law, frames, pcm = g711xz.decode(data)
+
+# ¿Hace falta la grabación exacta? Comprobar el modo
+exact = g711xz.read_mode(data) != g711xz.MODE_VOX
 ```
 
-La codificación lanza `g711xz.RefusedError` cuando el PCM no es G.711 puro, y la lectura lanza `g711xz.FormatError` ante un archivo dañado.
+La codificación lanza `g711xz.RefusedError` cuando el PCM no es G.711 puro, y la lectura lanza `g711xz.FormatError` ante un archivo dañado. Un archivo VOX no es un error: `g711xz.read_mode` lo distingue de uno sin pérdidas.
 
 ### Códigos de salida
 
@@ -120,8 +137,9 @@ La codificación lanza `g711xz.RefusedError` cuando el PCM no es G.711 puro, y l
 
 - `info FILE [FILE ...]` - Mostrar el encabezado, la duración y el bitrate
 - `decode FILE.g711.xz [OUT.wav]` - Decodificar a un WAV estéreo sin pérdidas
-- `encode FILE.wav [OUT.g711.xz]` - Codificar un WAV de 2 canales, 16 bits y 8000 Hz
+- `encode FILE.wav [OUT.g711.xz] [--vox]` - Codificar un WAV de 2 canales, 16 bits y 8000 Hz
 - `transcode FILE.g711.xz {u,a} OUT.g711.xz` - Convertir a la otra ley (con pérdidas)
+- `--vox` - Beta, solo con `encode`: escribir un archivo VOX. `info`, `decode` y `transcode` leen ambos modos e indican el modo
 - `-h, --help` - Mostrar ayuda
 
 ### Características

@@ -35,7 +35,7 @@ reads it. The decompressed payload is:
 | 4 | 1 | version | `1` |
 | 5 | 1 | law | ASCII `u` (mu-law) or `a` (A-law) |
 | 6 | 1 | channels | `2` |
-| 7 | 1 | reserved | `0` |
+| 7 | 1 | mode | `0` lossless, `1` vox (beta) |
 | 8 | 4 | sample rate, u32 little-endian | `8000` |
 | 12 | 4 | frames per channel, u32 little-endian | N |
 | 16 | N | codes of channel 0 (left, caller) | one byte per sample |
@@ -73,15 +73,19 @@ Ranges: mu-law -32124..32124, A-law -32256..32256.
 
 1. Decompress the xz stream.
 2. Check the header: magic `CRG7`, version 1, law `u` or `a`, channels 2,
-   reserved 0, rate 8000. Refuse anything else, and refuse an unknown version
-   rather than guess.
+   mode 0 or 1, rate 8000. Refuse anything else, and refuse an unknown version
+   rather than guess. Mode 1 is the beta described under
+   [VOX mode (beta)](#vox-mode-beta): it is read the same way, but such a
+   file is not the exact recording, so a reader that needs exact recordings
+   checks the mode byte and takes only mode 0.
 3. Check the body is exactly `frames * 2` bytes.
 4. Expand each code through the table of the file's law and interleave:
    output frame i is `(left[i], right[i])` as s16 little-endian.
 
 The result is interleaved s16le stereo PCM at 8 kHz.
 
-A complete decoder to WAV, standard library only:
+A complete decoder to WAV, standard library only. It takes only mode 0, the
+exact recordings; compare the mode with `(0, 1)` instead to read both:
 
 ```python
 import lzma, struct, sys, wave
@@ -91,8 +95,8 @@ EXPAND = {b"u": expand_ulaw, b"a": expand_alaw}   # the two functions above
 
 def decode_g711xz(data: bytes) -> bytes:
     payload = lzma.decompress(data)
-    magic, version, law, channels, reserved, rate, frames = HEADER.unpack_from(payload)
-    if (magic, version, channels, reserved, rate) != (b"CRG7", 1, 2, 0, 8000) or law not in EXPAND:
+    magic, version, law, channels, mode, rate, frames = HEADER.unpack_from(payload)
+    if (magic, version, channels, mode, rate) != (b"CRG7", 1, 2, 0, 8000) or law not in EXPAND:
         raise ValueError("not a .g711.xz version 1 file")
     body = payload[HEADER.size:]
     if len(body) != frames * channels:
@@ -158,7 +162,9 @@ Two details that matter for a compatible encoder:
   a `.g711.xz` file starts with `CRG7`. An xz file without `CRG7` is something
   else.
 - By name: the extension is double, `.g711.xz`. `os.path.splitext` cuts it
-  after `.g711`, so strip the suffix explicitly.
+  after `.g711`, so strip the suffix explicitly. Both modes use this one
+  extension; by convention a mode `1` file is named `NAME.vox.g711.xz`. The
+  name is a hint only, header byte 7 is the authority.
 
 ## What is not in the file
 
@@ -209,7 +215,48 @@ An encoder does not have to reproduce the 88 bytes of the file: different xz
 implementations compress the same payload to different bytes. The payload and
 the decoded PCM are what must match.
 
+## VOX mode (beta)
+
+Header byte 7 is the mode. Everything above describes mode `0`, the lossless
+file. Mode `1` is vox, a beta: the layout, the codes and the xz stream are the same
+and the file is read the same way, but the audio is not the exact recording.
+Speech is stored bit for bit; long stretches of even line noise were replaced,
+before the codes were written, by a short piece of the same noise repeated.
+Any other value of the byte is refused.
+
+A reader that knows only mode `0`, like every release up to 0.0.2, refuses a
+mode `1` file. g711xz from 0.0.3 on reads both modes without being asked and
+says which one it read: `g711xz info` prints the mode, and so do the result
+lines of `decode` and `transcode`. A reader that needs the exact recording
+should check the mode byte itself and take only mode `0`; in Python that is
+`g711xz.read_mode(path) == g711xz.MODE_VOX` for a file to leave out.
+
+The extension stays `.g711.xz`. The naming convention for mode `1` is
+`NAME.vox.g711.xz`; a reader never takes the mode from the name.
+
+What the beta writer does, on each channel separately:
+
+1. Cut the channel into frames of 160 samples (20 ms) from sample 0. The level
+   of a frame is `20 * log10(rms / 32768)` dBFS, with a frame of all zeros
+   counted as rms 0.5. A trailing partial frame is never replaced.
+2. A frame is active when its level is above -45 dBFS. Every active frame is
+   kept, together with 800 ms before it and after it.
+3. Of the runs of frames that are left, only those at least 1 s long are
+   candidates. Shorter pauses stay as they are.
+4. A candidate is left alone when its median level is at or below -70 dBFS
+   (the line is digitally silent there, so whatever comes through is a real
+   sound), or when any of its frames is more than 6 dB above its median
+   (something happens in it).
+5. Every remaining run keeps its first 250 ms and repeats them to its end.
+
+So every sample of a mode `1` file is a sample the channel really had, and the
+replaced stretches sound like the line did. The numbers are the defaults of the
+beta writer, not part of the format: a file may have been written with others,
+and a reader does not need them.
+
 ## Versioning
 
 The format version is the contract. A change to the layout means version 2,
-and a reader refuses a version it does not know.
+and a reader refuses a version it does not know. The mode byte does not change
+the layout, so mode `1` files are version 1 files; a reader refuses a mode it
+does not know.
