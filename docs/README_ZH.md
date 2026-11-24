@@ -58,6 +58,9 @@ pip3 install g711xz
 或从 GitHub 安装（会编译 Rust 扩展，需要 Rust 工具链和 C 编译器）：
 
 ```bash
+sudo apt install git curl build-essential python3-pip
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+. "$HOME/.cargo/env"
 pip3 install git+https://github.com/wachawo/g711xz.git
 ```
 

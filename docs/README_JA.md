@@ -58,6 +58,9 @@ pip3 install g711xz
 または GitHub から (Rust 拡張をビルドするため、Rust ツールチェーンと C コンパイラが必要です):
 
 ```bash
+sudo apt install git curl build-essential python3-pip
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+. "$HOME/.cargo/env"
 pip3 install git+https://github.com/wachawo/g711xz.git
 ```
 

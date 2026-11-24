@@ -58,6 +58,9 @@ pip3 install g711xz
 या GitHub से (इससे Rust एक्सटेंशन बनता है, इसके लिए Rust टूलचेन और C कंपाइलर चाहिए):
 
 ```bash
+sudo apt install git curl build-essential python3-pip
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+. "$HOME/.cargo/env"
 pip3 install git+https://github.com/wachawo/g711xz.git
 ```
 

@@ -58,6 +58,9 @@ pip3 install g711xz
 Or from GitHub (this builds the Rust extension and needs a Rust toolchain and a C compiler):
 
 ```bash
+sudo apt install git curl build-essential python3-pip
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+. "$HOME/.cargo/env"
 pip3 install git+https://github.com/wachawo/g711xz.git
 ```
 
